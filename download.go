@@ -10,11 +10,6 @@ import (
 	"sync"
 )
 
-const (
-	OutMemory int = 0
-	InMemory  int = 1
-)
-
 type Downloader struct {
 	client *http.Client
 
@@ -38,11 +33,10 @@ func newDownloader(max uint8) *Downloader {
 	}
 }
 
-func (downloader *Downloader) downloadFiles(download int, urls ...string) {
+func (downloader *Downloader) downloadFiles(urls ...string) {
 
 	downloader.wg.Add(len(urls))
 	for _, url := range urls {
-
 		go downloader.download(url)
 	}
 
@@ -65,11 +59,35 @@ func (downloader *Downloader) download(url string) {
 	downloader.counter--
 }
 
+func (downloader *Downloader) downloadInMemory(urls ...string) {
+	downloader.wg.Add(len(urls))
+	for _, url := range urls {
+		go func(url string) {
+			downloader.counter++
+			defer downloader.wg.Done()
+
+			req, err := downloader.client.Get(url)
+			checkError(err)
+			defer req.Body.Close()
+			reader := io.TeeReader(req.Body, downloader.printer)
+
+			filename := path.Base(req.Request.URL.Path)
+			downloader.saveInMemory(filename, reader)
+
+			downloader.counter--
+		}(url)
+	}
+
+	downloader.wg.Wait()
+	fmt.Println("\nAll downloads finished succesfully")
+}
+
 func (downloader *Downloader) saveInMemory(filename string, writter io.Reader) {
 	data, err := ioutil.ReadAll(writter)
 	checkError(err)
 	downloader.files[filename] = data
 }
+
 func (downloader *Downloader) saveFromMemory(dirs ...string) {
 	for _, dir := range dirs {
 
