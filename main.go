@@ -1,10 +1,18 @@
 package main
 
-import "fmt"
+import (
+	"flag"
+	"fmt"
+)
 
 func main() {
-	config := getConfig()
-	fmt.Println(config.Mods)
+	flag.Parse()
+	installer := newInstaller()
+
+	installer.install()
+	for true {
+
+	}
 }
 
 func checkError(err error) {

@@ -20,12 +20,12 @@ type Downloader struct {
 	counter uint8
 }
 
-func newDownloader(max uint8) *Downloader {
+func newDownloader(dir string) *Downloader {
 	client := http.Client{}
 
 	return &Downloader{
 		client: &client,
-		dir:    "./tmp/",
+		dir:    dir,
 		files:  make(map[string][]byte),
 
 		printer: &DownloadPrinter{},
@@ -79,6 +79,7 @@ func (downloader *Downloader) downloadInMemory(urls ...string) {
 	}
 
 	downloader.wg.Wait()
+
 	fmt.Println("\nAll downloads finished succesfully")
 }
 
@@ -89,6 +90,7 @@ func (downloader *Downloader) saveInMemory(filename string, writter io.Reader) {
 }
 
 func (downloader *Downloader) saveFromMemory(dirs ...string) {
+	downloader.wg.Add(len(dirs) * len(downloader.files))
 	for _, dir := range dirs {
 
 		for filename, data := range downloader.files {
@@ -96,15 +98,19 @@ func (downloader *Downloader) saveFromMemory(dirs ...string) {
 
 		}
 	}
+	downloader.wg.Wait()
+	fmt.Println("All downloads have been installed")
 
 }
-func (Downloader) saveBytes(dir string, filename string, data []byte) {
+func (downloader *Downloader) saveBytes(dir string, filename string, data []byte) {
+
 	file, err := os.Create(dir + "/" + filename)
 	checkError(err)
 	_, err = file.Write(data)
 	checkError(err)
 
 	file.Close()
+	downloader.wg.Done()
 }
 
 func (downloader *Downloader) clear() {
@@ -112,7 +118,7 @@ func (downloader *Downloader) clear() {
 }
 
 func (downloader *Downloader) save(filename string, writter io.Reader) {
-	dir := downloader.dir + filename
+	dir := downloader.dir + "/" + filename
 	file, err := os.Create(dir)
 
 	checkError(err)
