@@ -11,9 +11,8 @@ import (
 )
 
 type Downloader struct {
-	client  *http.Client
-	actives chan (uint8)
-	max     uint8
+	client *http.Client
+
 	files   map[string][]byte
 	dir     string
 	printer *DownloadPrinter
@@ -25,10 +24,10 @@ func newDownloader(max uint8) *Downloader {
 	client := http.Client{}
 
 	return &Downloader{
-		client:  &client,
-		dir:     "./tmp/",
-		files:   make(map[string][]byte),
-		max:     max,
+		client: &client,
+		dir:    "./tmp/",
+		files:  make(map[string][]byte),
+
 		printer: &DownloadPrinter{},
 		wg:      &sync.WaitGroup{},
 	}
@@ -38,13 +37,7 @@ func (downloader *Downloader) downloadFiles(urls ...string) {
 
 	downloader.wg.Add(len(urls))
 	for _, url := range urls {
-		if downloader.counter < downloader.max {
-			go downloader.download(url)
-		} else {
-
-			downloader.download(url)
-		}
-
+		go downloader.download(url)
 	}
 
 	downloader.wg.Wait()
