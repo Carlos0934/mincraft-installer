@@ -10,6 +10,11 @@ import (
 	"sync"
 )
 
+const (
+	OutMemory int = 0
+	InMemory  int = 1
+)
+
 type Downloader struct {
 	client *http.Client
 
@@ -33,15 +38,16 @@ func newDownloader(max uint8) *Downloader {
 	}
 }
 
-func (downloader *Downloader) downloadFiles(urls ...string) {
+func (downloader *Downloader) downloadFiles(download int, urls ...string) {
 
 	downloader.wg.Add(len(urls))
 	for _, url := range urls {
+
 		go downloader.download(url)
 	}
 
 	downloader.wg.Wait()
-	fmt.Println("\nAll download finish succesfully")
+	fmt.Println("\nAll downloads finished succesfully")
 }
 
 func (downloader *Downloader) download(url string) {
@@ -58,6 +64,7 @@ func (downloader *Downloader) download(url string) {
 
 	downloader.counter--
 }
+
 func (downloader *Downloader) saveInMemory(filename string, writter io.Reader) {
 	data, err := ioutil.ReadAll(writter)
 	checkError(err)
@@ -80,6 +87,10 @@ func (Downloader) saveBytes(dir string, filename string, data []byte) {
 	checkError(err)
 
 	file.Close()
+}
+
+func (downloader *Downloader) clear() {
+	downloader.files = make(map[string][]byte)
 }
 
 func (downloader *Downloader) save(filename string, writter io.Reader) {
