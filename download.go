@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
-	"time"
+	"sync"
 )
 
 type Downloader struct {
@@ -15,6 +16,9 @@ type Downloader struct {
 	max     uint8
 	files   map[string][]byte
 	dir     string
+	printer *DownloadPrinter
+	wg      *sync.WaitGroup
+	counter uint8
 }
 
 func newDownloader(max uint8) *Downloader {
@@ -22,39 +26,77 @@ func newDownloader(max uint8) *Downloader {
 
 	return &Downloader{
 		client:  &client,
-		dir:     "./",
+		dir:     "./tmp/",
 		files:   make(map[string][]byte),
-		actives: make(chan uint8),
 		max:     max,
+		printer: &DownloadPrinter{},
+		wg:      &sync.WaitGroup{},
 	}
 }
 
 func (downloader *Downloader) downloadFiles(urls ...string) {
+
+	downloader.wg.Add(len(urls))
 	for _, url := range urls {
-		go downloader.download(url)
+		if downloader.counter < downloader.max {
+			go downloader.download(url)
+		} else {
+
+			downloader.download(url)
+		}
+
 	}
 
+	downloader.wg.Wait()
+	fmt.Println("\nAll download finish succesfully")
 }
 
 func (downloader *Downloader) download(url string) {
-
-	first := time.Now()
+	downloader.counter++
+	defer downloader.wg.Done()
 
 	req, err := downloader.client.Get(url)
 	checkError(err)
 	defer req.Body.Close()
-	file, err := ioutil.ReadAll(req.Body)
+	reader := io.TeeReader(req.Body, downloader.printer)
 
+	filename := path.Base(req.Request.URL.Path)
+	downloader.save(filename, reader)
+
+	downloader.counter--
+}
+func (downloader *Downloader) saveInMemory(filename string, writter io.Reader) {
+	data, err := ioutil.ReadAll(writter)
+	checkError(err)
+	downloader.files[filename] = data
+}
+func (downloader *Downloader) saveFromMemory(dirs ...string) {
+	for _, dir := range dirs {
+
+		for filename, data := range downloader.files {
+			go downloader.saveBytes(dir, filename, data)
+
+		}
+	}
+
+}
+func (Downloader) saveBytes(dir string, filename string, data []byte) {
+	file, err := os.Create(dir + "/" + filename)
+	checkError(err)
+	_, err = file.Write(data)
 	checkError(err)
 
-	fmt.Println(time.Now().Sub(first).Seconds())
-	filename := path.Base(req.Request.URL.Path)
-	downloader.save(filename, file)
+	file.Close()
 }
 
-func (downloader *Downloader) save(filename string, data []byte) {
+func (downloader *Downloader) save(filename string, writter io.Reader) {
+	dir := downloader.dir + filename
+	file, err := os.Create(dir)
 
-	err := ioutil.WriteFile(downloader.dir+filename, data, os.ModeAppend)
+	checkError(err)
+	defer file.Close()
+
+	_, err = io.Copy(file, writter)
 
 	checkError(err)
 

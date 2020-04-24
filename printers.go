@@ -2,18 +2,20 @@ package main
 
 import (
 	"fmt"
-	"strings"
+
+	"github.com/dustin/go-humanize"
 )
 
 type DownloadPrinter struct {
+	Total uint64
 }
 
-func (DonwloadPrinter) Write(file []byte) (int, error) {
-	fmt.Printf("\r%s", strings.Repeat(" ", 50))
+func (printer *DownloadPrinter) Write(file []byte) (int, error) {
+	n := len(file)
 
-	fmt.Printf("\rDownloading... %s complete")
-}
+	printer.Total += uint64(n)
 
-func (DonwloadPrinter) mbSize(file []byte) float32 {
-	binary.size()
+	fmt.Printf("\rDownloading... %s ", humanize.Bytes(printer.Total))
+
+	return n, nil
 }
